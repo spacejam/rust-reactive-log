@@ -1,4 +1,4 @@
 rust-reactive-log
 =================
 
-performant transactional persistent local buffer
+performant transactional composable persistence
