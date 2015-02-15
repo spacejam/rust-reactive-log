@@ -13,6 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+extern crate quickcheck;
 use std::num::ToPrimitive;
 
 pub fn encode_u32(frameSize: u32) -> [u8; 4] {
@@ -53,4 +54,34 @@ pub fn decode_u64(buf: [u8; 8]) -> u64 {
     ((buf[5] & 0xff).to_u64().unwrap() << 16) |
     ((buf[6] & 0xff).to_u64().unwrap() << 8)  |
     ((buf[7] & 0xff)).to_u64().unwrap()
+}
+
+#[test]
+fn equiv_u32() {
+    use self::quickcheck::quickcheck;
+
+    fn prop(xs: Vec<u32>) -> bool {
+        for x in xs {
+            if x != decode_u32(encode_u32(x)) {
+                return false
+            }
+        }
+        true
+    }
+    quickcheck(prop as fn(Vec<u32>) -> bool);
+}
+
+#[test]
+fn equiv_u64() {
+    use self::quickcheck::quickcheck;
+
+    fn prop(xs: Vec<u64>) -> bool {
+        for x in xs {
+            if x != decode_u64(encode_u64(x)) {
+                return false
+            }
+        }
+        true
+    }
+    quickcheck(prop as fn(Vec<u64>) -> bool);
 }
