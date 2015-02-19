@@ -17,31 +17,38 @@
 #![crate_type = "lib"]
 #![allow(dead_code)]
 
-pub use log::{
-    Log,
-    Options,
-    SyncPolicy,
+pub use producer::{
+    Producer,
+    ProducerOptions,
 };
-pub use messageandoffset::MessageAndOffset;
+pub use consumer::{
+    Consumer,
+    ConsumerOptions,
+};
+pub use message_and_offset::MessageAndOffset;
+pub use sync_policy::SyncPolicy;
 
+use store::{
+    WriteStore,
+    ReadStore,
+};
 use logfile::LogFile;
-use logfilereader::LogFileReader;
 use coding::{
     encode_u32,
     decode_u32,
     encode_u64,
     decode_u64,
 };
-pub mod log;
+pub mod producer;
+pub mod consumer;
+pub mod sync_policy;
+mod store;
 mod logfile;
-mod logfilereader;
 mod coding;
-mod messageandoffset;
+mod message_and_offset;
 
 #[test]
 fn write() {
-    use std::path::Path;
-    let mut log = Log::new_default(Path::new("/tmp/bananaz/bad/diddety/")).unwrap();
-    log.write(b"hello world");
-    //assert!(log.read().unwrap() == b"hello world");
+    let mut prod = Producer::new_default("/tmp/bananaz/bad/diddety/").unwrap();
+    prod.append(b"hello world");
 }

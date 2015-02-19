@@ -18,7 +18,6 @@ use std::path::{Path, PathBuf};
 use std::io::{self, Read, Write, Seek, SeekFrom, BufWriter};
 use std::num::ToPrimitive;
 
-use logfilereader::LogFileReader;
 use coding::{encode_u32, encode_u64};
 
 pub struct LogFile<'a> {
@@ -29,9 +28,7 @@ pub struct LogFile<'a> {
 }
 
 impl<'a> LogFile<'a> {
-    pub fn new(directory: &Path, start: u64) -> Result<LogFile, io::Error> {
-        let mut opts = OpenOptions::new();
-        opts.write(true).append(true).create(true);
+    pub fn new(directory: &Path, start: u64, opts: OpenOptions) -> Result<LogFile, io::Error> {
         let logname = format!("{:016x}.log", start);
         opts.open(&directory.join(logname.as_slice())).map(move |f| {
             let mtime = f.metadata().unwrap().modified();
@@ -48,7 +45,7 @@ impl<'a> LogFile<'a> {
         self.f.metadata().unwrap().len()
     }
 
-    pub fn write(&mut self, offset: u64, msg: &[u8]) -> Result<(), io::Error> {
+    pub fn append(&mut self, offset: u64, msg: &[u8]) -> Result<(), io::Error> {
         let offset_bytes = encode_u64(offset);
         let size_bytes = encode_u32(msg.len().to_u32().unwrap());
         self.f.write(&offset_bytes);
@@ -68,7 +65,7 @@ impl<'a> LogFile<'a> {
         self.f.sync_all();
     }
 
-    pub fn reader(&self) -> Result<LogFileReader, io::Error> {
-        LogFileReader::new(self.directory, self.start)
+    pub fn max_offset(&mut self) -> u64 {
+        0
     }
 }
