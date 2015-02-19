@@ -16,13 +16,12 @@
 use std::collections::BTreeMap;
 use std::collections::Bound::{Included, Unbounded};
 use std::fs::{self, File, OpenOptions, read_dir, PathExt};
-use std::io;
+use std::io::{self, BufWriter};
 use std::num;
 use std::path::Path;
 use std::time::duration::Duration;
 
 use logfile::LogFile;
-use coding::{encode_u32, decode_u32, encode_u64, decode_u64};
 
 pub enum SyncPolicy {
     Always,
@@ -41,20 +40,21 @@ pub struct Options {
 }
 
 pub struct Log<'l> {
-    stores: BTreeMap<u64, LogFile>,
+    writer: BufWriter<File>,
+    stores: BTreeMap<u64, LogFile<'l>>,
     options: Options,
     max_offset: u64,
 }
 
 impl<'l> Log<'l> {
-    pub fn new(log_directory: &Path, options: Options) -> Result<Log, io::Error> {
+    pub fn new(log_directory: &'l Path, options: Options) -> Result<Log, io::Error> {
         if !log_directory.is_dir() {
             println!("attempting to create new log directory: {}",
                      log_directory.display());
             try!(fs::create_dir_all(&log_directory));
         }
 
-        let mut stores: BTreeMap<u64, LogFile> = BTreeMap::new();
+        let mut stores: BTreeMap<u64, LogFile<'l>> = BTreeMap::new();
         for possible_file in try!(read_dir(log_directory)) {
             let f = try!(possible_file);
             let fpath = f.path();
@@ -74,9 +74,12 @@ impl<'l> Log<'l> {
             stores.insert(0, initial_log_file);
         }
 
-        let max_offset = max_offset_from_stores(&mut stores).unwrap();
+        let leading_file = stores.range(Unbounded, Unbounded)
+                                 .next_back().unwrap();
+        let max_offset = leading_file.1.reader().unwrap().max_offset();
+        let writer = BufWriter::new(leading_file.1.f);
 
-        Ok(Log { stores: stores, options: options, max_offset: max_offset })
+        Ok(Log { writer: writer, stores: stores, options: options, max_offset: max_offset })
     }
 
     pub fn new_default(log_directory: &Path) -> Result<Log, io::Error> {
@@ -91,12 +94,13 @@ impl<'l> Log<'l> {
         Log::new(log_directory, opts)
     }
 
-    pub fn write(&mut self, msg: &[u8]) -> Result<(), io::Error> {
+    pub fn write(&'l mut self, msg: &[u8]) -> Result<(), io::Error> {
+        self.max_offset += 1;
         if self.should_roll() {
             self.roll_active_file();
         }
-        self.max_offset += 1;
-        Ok(())
+        let mut active_file = self.active_log_file().unwrap();
+        active_file.write(self.max_offset, msg)
     }
 
     pub fn read<'a>(self) -> Result<&'a [u8], io::Error> {
@@ -115,7 +119,7 @@ impl<'l> Log<'l> {
                    .map(move |index_log_file| { index_log_file.1 })
     }
 
-    fn should_roll(&self) -> bool {
+    fn should_roll(&'l self) -> bool {
         let af = self.active_log_file().unwrap();
         let should = af.len() > self.options.file_roll_size;
         println!("current len: {} max len: {} should_roll: {}", af.len(),
@@ -124,13 +128,6 @@ impl<'l> Log<'l> {
     }
 
     fn roll_active_file(&self) {
-        
+        //TODO get max index, create new file, add to stores map
     }
-
-}
-
-fn max_offset_from_stores(stores: &mut BTreeMap<u64, LogFile>) -> Option<u64> {
-    stores.range(Unbounded, Unbounded)
-               .next_back()
-               .map(move |index_log_file| { index_log_file.1.max_offset() })
 }

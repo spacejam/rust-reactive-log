@@ -14,23 +14,30 @@
    limitations under the License.
 */
 use std::fs::{self, File, OpenOptions, read_dir, PathExt};
-use std::path::Path;
-use std::io;
+use std::path::{Path, PathBuf};
+use std::io::{self, Read, Write, Seek, SeekFrom, BufWriter};
+use std::num::ToPrimitive;
 
-pub struct LogFile {
-    f: File,
+use logfilereader::LogFileReader;
+use coding::{encode_u32, encode_u64};
+
+pub struct LogFile<'a> {
+    pub f: File,
+    directory: &'a Path,
     start: u64,
     last_sync_time: u64,
 }
 
-impl LogFile {
-    pub fn new(path: &Path, start: u64) -> Result<LogFile, io::Error> {
+impl<'a> LogFile<'a> {
+    pub fn new(directory: &Path, start: u64) -> Result<LogFile, io::Error> {
         let mut opts = OpenOptions::new();
         opts.write(true).append(true).create(true);
-        opts.open(&path.join(logname(start).as_slice())).map(move |f| {
+        let logname = format!("{:016x}.log", start);
+        opts.open(&directory.join(logname.as_slice())).map(move |f| {
             let mtime = f.metadata().unwrap().modified();
             LogFile {
                 f: f,
+                directory: directory,
                 start: start,
                 last_sync_time: mtime
             }
@@ -41,12 +48,27 @@ impl LogFile {
         self.f.metadata().unwrap().len()
     }
 
-    pub fn max_offset(&self) -> u64{
-        // this will be optimized when we have indexes
-        0
+    pub fn write(&mut self, offset: u64, msg: &[u8]) -> Result<(), io::Error> {
+        let offset_bytes = encode_u64(offset);
+        let size_bytes = encode_u32(msg.len().to_u32().unwrap());
+        self.f.write(&offset_bytes);
+        self.f.write(&size_bytes);
+        self.f.write(msg);
+        if self.should_flush() {
+            self.sync_all();
+        }
+        Ok(())
     }
-}
 
-fn logname(index: u64) -> String {
-    format!("{:016x}.log", index)
+    pub fn should_flush(&self) -> bool {
+        false
+    }
+
+    pub fn sync_all(&mut self) {
+        self.f.sync_all();
+    }
+
+    pub fn reader(&self) -> Result<LogFileReader, io::Error> {
+        LogFileReader::new(self.directory, self.start)
+    }
 }
