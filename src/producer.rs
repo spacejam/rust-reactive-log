@@ -14,12 +14,9 @@
    limitations under the License.
 */
 use std::collections::BTreeMap;
-use std::collections::Bound::{Included, Unbounded};
-use std::fs::{self, File, OpenOptions, read_dir, PathExt};
-use std::io::{self, BufWriter};
-use std::num;
 use std::path::Path;
 use std::time::duration::Duration;
+use std::io::{self, Read, Write, Seek, SeekFrom};
 
 use logfile::LogFile;
 use store::WriteStore;
@@ -33,19 +30,19 @@ pub struct ProducerOptions {
     max_file_age: Option<Duration>,
 }
 
-pub struct Producer<'l> {
-    store: WriteStore,
+pub struct Producer<'a> {
+    store: WriteStore<'a>,
 }
 
 impl Copy for ProducerOptions {}
 
 impl<'l> Producer<'l> {
-    pub fn new(directory: &'l Path, options: ProducerOptions) -> Result<Producer, io::Error> {
-        let store = WriteStore::new(directory, options);
+    pub fn new(directory: &str, options: ProducerOptions) -> Result<Producer, io::Error> {
+        let store = try!(WriteStore::new(directory, options));
         Ok(Producer { store: store })
     }
 
-    pub fn new_default(directory: &Path) -> Result<Producer, io::Error> {
+    pub fn new_default(directory: &str) -> Result<Producer, io::Error> {
         let sp = SyncPolicy::Periodic(Duration::seconds(1));
         let opts = ProducerOptions {
             sync_policy: sp,

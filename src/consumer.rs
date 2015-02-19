@@ -13,28 +13,21 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use std::fs::{self, File, OpenOptions, read_dir, PathExt};
 use std::path::{Path, PathBuf};
 use std::io::{self, Read, Write, Seek, SeekFrom};
 use std::num::{self, ToPrimitive};
 
-use coding::{decode_u32, decode_u64};
 use store::ReadStore;
 use message_and_offset::MessageAndOffset;
 use logfile::LogFile;
+use whence::Whence;
 
-pub trait Consumer<'a> {
+pub trait Consumer {
     pub fn read<'b>(&mut self) -> Option<MessageAndOffset<'b>>;
 }
 
 pub struct BasicConsumer<'a> {
-    store: ReadStore,
-}
-
-pub enum Whence {
-    Latest,
-    Oldest,
-    Position(u64),
+    store: ReadStore<'a>,
 }
 
 pub enum ConsumerStyle<'a> {
@@ -42,14 +35,11 @@ pub enum ConsumerStyle<'a> {
     GlobalTxConsumer,
 }
 
-impl Copy for Whence {}
-
 impl<'a> BasicConsumer<'a> {
     pub fn new(directory: &str, whence: Whence) -> Result<BasicConsumer, io::Error> {
-        ReadStore::new(directory, whence).map(|rs| {
-            try!(rs.seek(whence));
-            BasicConsumer { store: rs }
-        }
+        let rs = try!(ReadStore::new(directory, whence));
+        try!(rs.seek(whence));
+        Ok(BasicConsumer { store: rs })
     }
 }
 
@@ -64,17 +54,13 @@ impl<'a,'c> Iterator for BasicConsumer<'c> {
     
     #[inline]
     fn next(&mut self) -> Option<&'a [u8]> {
-        self.last_pos = self.lf.seek(SeekFrom::Current(0)).unwrap();
+        //TODO implement
         None
     }
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let file_size = self.lf.metadata().unwrap().len();
-        if self.last_pos == file_size {
-            (0, Some(0))
-        } else {
-            (1, None)
-        }
+        //TODO implement
+        (0, None)
     }
 }

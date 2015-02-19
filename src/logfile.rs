@@ -22,20 +22,15 @@ use coding::{encode_u32, encode_u64};
 
 pub struct LogFile<'a> {
     pub f: File,
-    directory: &'a Path,
-    start: u64,
     last_sync_time: u64,
 }
 
 impl<'a> LogFile<'a> {
-    pub fn new(directory: &Path, start: u64, opts: OpenOptions) -> Result<LogFile, io::Error> {
-        let logname = format!("{:016x}.log", start);
-        opts.open(&directory.join(logname.as_slice())).map(move |f| {
+    pub fn new(path: &Path, opts: OpenOptions) -> Result<LogFile, io::Error> {
+        opts.open(&path).map(move |f| {
             let mtime = f.metadata().unwrap().modified();
             LogFile {
                 f: f,
-                directory: directory,
-                start: start,
                 last_sync_time: mtime
             }
         })

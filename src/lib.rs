@@ -23,10 +23,10 @@ pub use producer::{
 };
 pub use consumer::{
     Consumer,
-    ConsumerOptions,
 };
 pub use message_and_offset::MessageAndOffset;
 pub use sync_policy::SyncPolicy;
+pub use whence::Whence;
 
 use store::{
     WriteStore,
@@ -42,6 +42,7 @@ use coding::{
 pub mod producer;
 pub mod consumer;
 pub mod sync_policy;
+pub mod whence;
 mod store;
 mod logfile;
 mod coding;

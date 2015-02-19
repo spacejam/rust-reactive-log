@@ -14,14 +14,10 @@
    limitations under the License.
 */
 
-use std::time::duration::Duration;
-
-pub enum SyncPolicy {
-    Always,
-    Never,
-    Periodic(Duration),
-    PerThreadBufferBytes(u32),
-    TotalBufferBytes(u32),
+pub enum Whence {
+    Latest,
+    Oldest,
+    Position(u64),
 }
 
-impl Copy for SyncPolicy {}
+impl Copy for Whence {}
